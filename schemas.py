@@ -27,5 +27,24 @@ class UserResponse(BaseModel):
     institution_id: Optional[str]
     manager_id: Optional[int]
 
+# schemas.py
+
+# ... keep your existing UserCreate, UserLogin, UserResponse ...
+
+# 1. What the Employee Dashboard sends to the server
+class ClaimCreate(BaseModel):
+    employee_id: int
+    amount: float
+    description: str
+
+# 2. What the server sends back to the Dashboard
+class ClaimResponse(BaseModel):
+    id: int
+    amount: float
+    description: str
+    status: str
+    employee_id: int
+    manager_id: Optional[int] = None
+
     class Config:
-        from_attributes = True
+        from_attributes = True # This allows Pydantic to read from SQLAlchemy models

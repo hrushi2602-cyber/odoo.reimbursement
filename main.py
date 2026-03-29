@@ -55,3 +55,42 @@ def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return new_user
+
+# main.py
+
+@app.post("/employee/submit-reimbursement", response_model=schemas.ClaimResponse)
+def submit_reimbursement(claim_data: schemas.ClaimCreate, db: Session = Depends(get_db)):
+    
+    # 1. Fetch the Employee to get their potential manager
+    employee = db.query(models.User).filter(models.User.id == claim_data.employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    # 2. Check the Rules for this amount
+    rule = db.query(models.ExpenseRule).filter(
+        models.ExpenseRule.min_range <= claim_data.amount,
+        models.ExpenseRule.max_range >= claim_data.amount
+    ).first()
+
+    # 3. Determine the Approver
+    assigned_manager = None
+    if rule and rule.is_manager_approver:
+        assigned_manager = employee.manager_id
+    
+    if rule and rule.is_manager_approver and not assigned_manager:
+        raise HTTPException(status_code=400, detail="This claim requires manager approval, but you have no manager assigned.")
+
+    # 4. Create and Save
+    new_claim = models.Claim(
+        amount=claim_data.amount,
+        description=claim_data.description,
+        status=models.ClaimStatus.PENDING,
+        employee_id=employee.id,
+        manager_id=assigned_manager
+    )
+
+    db.add(new_claim)
+    db.commit()
+    db.refresh(new_claim)
+
+    return new_claim
